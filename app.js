@@ -9,6 +9,8 @@ const GEMINI_MODEL = "gemini-2.5-flash"; // 모델을 바꿀 때는 이 줄만 �
 const CANDIDATE_POOL = 10; // 검색 1회에 받아 오는 후보 수 (이 중 MAX_EVIDENCE건을 고른다)
 const KEY_STORE = { tavily: "factcheck.tavilyKey", gemini: "factcheck.geminiKey" };
 const FATAL_STATUS = [401, 403, 429]; // 재시도해도 소용없는 오류
+const TAVILY_CONNECT_ERROR =
+  "Tavily에 연결하지 못했습니다. 키가 틀렸거나 사용 한도를 넘었을 때도 이렇게 표시됩니다. 키와 인터넷 연결을 확인하세요.";
 
 const $ = (id) => document.getElementById(id);
 
@@ -37,14 +39,27 @@ function showStatus(msg, isError = false) { setStatus("status", msg, isError); }
 function hideStatus() { clearStatus("status"); }
 
 // ── 1단계: Tavily 근거 수집 (우선 출처 1차 → 부족하면 전체 2차) ────
-async function tavilySearch(claim, key, extra) {
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
-    body: JSON.stringify({ query: claim, max_results: CANDIDATE_POOL, search_depth: "advanced", ...extra }),
-  });
+// Tavily 공통 호출.
+// Tavily의 오류 응답(401 키 오류, 429 한도 초과 등)에는 브라우저 허용(CORS) 헤더가 없어서
+// 브라우저에서는 상태 코드 대신 네트워크 오류(TypeError)로만 보인다. 그래서 연결 실패를 치명 오류로 다룬다.
+async function tavilyPost(path, key, payload) {
+  let res;
+  try {
+    res = await fetch(`https://api.tavily.com/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+      body: JSON.stringify(payload),
+    });
+  } catch (cause) {
+    throw Object.assign(new Error(TAVILY_CONNECT_ERROR), { fatal: true, cause });
+  }
   if (!res.ok) throw httpError("Tavily", res.status);
-  const data = await res.json();
+  return res.json();
+}
+
+async function tavilySearch(claim, key, extra) {
+  const data = await tavilyPost("search", key,
+    { query: claim, max_results: CANDIDATE_POOL, search_depth: "advanced", ...extra });
   return (data.results || [])
     .filter((r) => isHttpUrl(r.url))
     .map((r) => ({
@@ -53,6 +68,13 @@ async function tavilySearch(claim, key, extra) {
       url: r.url,
       score: typeof r.score === "number" ? r.score : 0,
     }));
+}
+
+// 기사 링크에서 본문을 가져온다. 성공 응답이지만 본문이 없으면 빈 문자열.
+async function tavilyExtract(url, key) {
+  const data = await tavilyPost("extract", key, { urls: [url], extract_depth: "basic" });
+  const hit = (data.results || []).find((r) => typeof r.raw_content === "string");
+  return hit ? hit.raw_content.trim() : "";
 }
 
 function mergeUnique(lists) {
@@ -67,8 +89,8 @@ async function fetchEvidence(claim, key) {
   try {
     priority = await tavilySearch(claim, key, { include_domains: PRIORITY_DOMAINS });
   } catch (err) {
-    // 키·한도·네트워크 오류는 그대로 알린다. 그 밖의 거부(도메인 목록 등)는 2차 검색으로 넘어간다.
-    if (!err.status || FATAL_STATUS.includes(err.status)) throw err;
+    // 키·한도·연결 오류는 그대로 알린다. 그 밖의 거부(도메인 목록 등)는 2차 검색으로 넘어간다.
+    if (!err.status || isFatal(err)) throw err;
   }
   let result = selectEvidence(priority);
   if (result.selected.length < MAX_EVIDENCE) {
@@ -267,6 +289,10 @@ function httpError(who, status) {
   else if (status === 429) msg = `${who} 사용 한도를 넘었습니다. 잠시 뒤 다시 시도하세요.`;
   else if (status === 400) msg = `${who} 요청이 거부되었습니다(400). 키와 입력 내용을 확인하세요.`;
   return Object.assign(new Error(msg), { status });
+}
+// 다음 주장으로 넘어가도 소용없는 오류(키·한도·Tavily 연결 실패)
+function isFatal(err) {
+  return Boolean(err && (err.fatal || FATAL_STATUS.includes(err.status)));
 }
 function errorMessage(err) {
   // fetch 자체 실패(네트워크, CORS 등)는 TypeError

@@ -38,6 +38,11 @@ ul.numbered { list-style:none; padding-left:0; }
 
 /* 기사 분석 */
 .warn { color:#b9770e; }
+.url-row { display:flex; gap:8px; align-items:center; }
+.url-row input { flex:1; min-width:0; }
+.url-row button { margin:0; white-space:nowrap; }
+h2.gap { margin-top:20px; }
+.speaker { font-weight:bold; color:#1f4fd8; }
 #articleCount.over { color:#c0392b; font-weight:bold; }
 .candidates { list-style:none; padding:0; margin:0; }
 .candidate { border-top:1px solid var(--line); padding:10px 0; }

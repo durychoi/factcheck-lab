@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>팩트체크 분석</title>
-  <link rel="stylesheet" href="style.css?v=20260930b">
+  <link rel="stylesheet" href="style.css?v=20260930d">
 </head>
 <body>
   <main>
@@ -41,8 +41,15 @@
     <!-- 기사 분석 -->
     <div id="articlePane" role="tabpanel" hidden>
       <section>
-        <h2>기사 원문</h2>
-        <p class="hint warn">기사 전문이 Google(Gemini)로 전송됩니다. 보도 전·엠바고 기사는 주의하세요.</p>
+        <h2>기사 링크 <small>(선택)</small></h2>
+        <div class="url-row">
+          <input id="articleUrl" type="url" placeholder="https://..." aria-label="기사 링크">
+          <button id="fetchArticle" type="button" class="secondary">본문 가져오기</button>
+        </div>
+        <p class="hint">Tavily Extract로 본문을 가져와 아래 입력칸에 채웁니다. 유료·차단 기사는 가져오지 못할 수 있습니다.</p>
+
+        <h2 class="gap">기사 원문</h2>
+        <p class="hint warn">기사 전문이 Google(Gemini)로 전송됩니다. 보도 전·엠바고 기사는 주의하세요. 최대 15,000자.</p>
         <textarea id="articleText" rows="10" placeholder="기사 본문을 붙여 넣으세요"></textarea>
         <div id="articleCount" class="hint"></div>
         <button id="extract" type="button">주장 추출</button>
@@ -73,11 +80,11 @@
       </section>
     </div>
   </main>
-  <script src="sources.js?v=20260930b"></script>
-  <script src="evidence.js?v=20260930b"></script>
-  <script src="judge.js?v=20260930b"></script>
-  <script src="article.js?v=20260930b"></script>
-  <script src="app.js?v=20260930b"></script>
-  <script src="article-ui.js?v=20260930b"></script>
+  <script src="sources.js?v=20260930d"></script>
+  <script src="evidence.js?v=20260930d"></script>
+  <script src="judge.js?v=20260930d"></script>
+  <script src="article.js?v=20260930d"></script>
+  <script src="app.js?v=20260930d"></script>
+  <script src="article-ui.js?v=20260930d"></script>
 </body>
 </html>
