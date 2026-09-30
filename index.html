@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>팩트체크 분석</title>
+  <link rel="stylesheet" href="style.css?v=20260930">
+</head>
+<body>
+  <main>
+    <h1>팩트체크 분석</h1>
+
+    <section class="keys">
+      <h2>API 키 <small>(이 브라우저에만 저장됩니다)</small></h2>
+      <label>Tavily 키
+        <input id="tavilyKey" type="password" autocomplete="off" placeholder="tvly-...">
+      </label>
+      <label>Gemini 키
+        <input id="geminiKey" type="password" autocomplete="off" placeholder="AIza...">
+      </label>
+      <button id="clearKeys" type="button" class="secondary">키 지우기</button>
+      <p class="hint">공용 PC에서는 사용 후 반드시 "키 지우기"를 누르세요.</p>
+    </section>
+
+    <section>
+      <h2>검증할 주장</h2>
+      <textarea id="claim" rows="3" placeholder="기사 속 주장 한 문장을 입력하세요"></textarea>
+      <button id="analyze" type="button">분석</button>
+    </section>
+
+    <section id="status" aria-live="polite"></section>
+    <section id="result" hidden>
+      <div id="verdict" class="verdict"></div>
+      <p id="claimType" class="hint" hidden></p>
+      <ul id="reasons"></ul>
+      <h3>판정에 쓴 근거</h3>
+      <ul id="sources" class="numbered"></ul>
+      <p class="hint">AI 판정은 참고용입니다. 근거 링크를 직접 확인하세요.</p>
+      <details id="allEvidence" hidden>
+        <summary>검색된 근거 전체 보기 (<span id="allEvidenceCount">0</span>건)</summary>
+        <p class="hint">[–]는 중복·상한으로 제외되어 판정에 전달되지 않은 후보입니다.</p>
+        <ul id="allEvidenceList" class="numbered"></ul>
+      </details>
+    </section>
+  </main>
+  <script src="sources.js?v=20260930"></script>
+  <script src="evidence.js?v=20260930"></script>
+  <script src="judge.js?v=20260930"></script>
+  <script src="app.js?v=20260930"></script>
+</body>
+</html>

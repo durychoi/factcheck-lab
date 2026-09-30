@@ -1,0 +1,31 @@
+:root { --fg:#1c1c1e; --muted:#6b6b70; --line:#d8d8dc; --bg:#f6f6f8; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif; line-height:1.6; }
+main { max-width:720px; margin:0 auto; padding:24px 16px 64px; }
+section { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
+h1 { font-size:1.4rem; } h2 { font-size:1rem; margin:0 0 12px; } h3 { font-size:.95rem; }
+small { color:var(--muted); font-weight:normal; }
+label { display:block; margin-bottom:10px; font-size:.9rem; }
+input, textarea { width:100%; padding:8px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+button { padding:9px 20px; border:0; border-radius:6px; background:#1f4fd8; color:#fff; font:inherit; cursor:pointer; margin-top:8px; }
+button.secondary { background:#fff; color:var(--fg); border:1px solid var(--line); }
+button:disabled { opacity:.5; cursor:wait; }
+.hint { color:var(--muted); font-size:.85rem; margin:8px 0 0; }
+#status { display:none; } #status.show { display:block; }
+#status.error { border-color:#c0392b; color:#c0392b; }
+.verdict { display:inline-block; padding:6px 16px; border-radius:20px; font-weight:bold; color:#fff; font-size:1.1rem; }
+.v-사실 { background:#1e8449; } .v-대체로-사실 { background:#52a865; }
+.v-절반의-사실 { background:#d68910; } .v-대체로-거짓 { background:#d35400; }
+.v-거짓 { background:#c0392b; } .v-판단-유보 { background:#6b6b70; }
+#reasons { padding-left:20px; } #sources li { margin-bottom:8px; word-break:break-all; }
+#sources a { color:#1f4fd8; }
+.badge { display:inline-block; padding:0 8px; border-radius:4px; font-size:.8rem; font-weight:bold; color:#fff; background:#6b6b70; }
+.t-공공기관 { background:#1f4fd8; } .t-학술 { background:#7d3c98; }
+.t-언론 { background:#1e8449; } .t-백과 { background:#b7791f; }
+.t-기타 { background:#9a9aa0; }
+details { margin-top:12px; } summary { cursor:pointer; color:var(--muted); font-size:.9rem; }
+#allEvidenceList li { margin-bottom:6px; word-break:break-all; }
+ul.numbered { list-style:none; padding-left:0; }
+.num { font-weight:bold; margin-right:4px; font-variant-numeric:tabular-nums; }
+#claimType { margin-top:8px; }
