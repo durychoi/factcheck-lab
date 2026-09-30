@@ -15,6 +15,7 @@ const articleState = {
   edited: new Map(), // key → 사용자가 고친 주장 문구
   extractionCalls: 0, // 주장 추출에 쓴 Gemini 호출
   fetchCalls: 0, // 본문 가져오기에 쓴 Tavily Extract 호출
+  fetched: null, // 마지막으로 가져온 기사 { url, title } (순환 검증 방지)
   used: { tavily: 0, gemini: 0 },
   running: false,
   stopRequested: false,
@@ -24,6 +25,14 @@ function setArticleStatus(msg, isError = false) { setStatus("articleStatus", msg
 function claimTextOf(c) { return (articleState.edited.get(c.key) ?? c.claim).trim(); }
 function needsRawCheck(c) { return hasNumericDetail(claimTextOf(c), c.sentence); }
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// 원 기사(링크 입력칸의 URL, 가져온 본문의 제목)는 근거에서 뺀다. 순환 검증 방지.
+function coreSource() {
+  const url = $("articleUrl").value.trim();
+  const fetched = articleState.fetched;
+  const title = fetched && fetched.url === url ? fetched.title : "";
+  return isHttpUrl(url) ? { url, title } : null;
+}
 
 function makeKindBadge(kind) {
   return kind === "일반" ? null : el("span", "kind-badge", `[${kind}]`);
@@ -65,6 +74,7 @@ async function fetchArticle() {
     refreshSelectionState();
     if (!isUsableExtract(text)) return setArticleStatus(FETCH_FAIL_MESSAGE, true);
     box.value = text;
+    articleState.fetched = { url, title: guessTitle(text) };
     updateArticleCount();
     const over = text.length > MAX_ARTICLE_CHARS
       ? ` ${MAX_ARTICLE_CHARS.toLocaleString()}자를 넘으니 필요 없는 부분을 지워 주세요.` : "";
@@ -182,6 +192,7 @@ async function startVerification() {
     .map((c) => ({ ...c, claim: claimTextOf(c), rawCheck: needsRawCheck(c) }));
   if (targets.some((t) => !t.claim)) return setArticleStatus("비어 있는 주장 문구가 있습니다. 고친 뒤 다시 시도하세요.", true);
 
+  const source = coreSource();
   articleState.running = true;
   articleState.stopRequested = false;
   articleState.used = { tavily: 0, gemini: 0 };
@@ -196,7 +207,7 @@ async function startVerification() {
       setRowState(rows[i], "검증 중");
       setArticleStatus(`${progress}: ${t.claim}`);
       try {
-        const out = await verifyClaim(t.claim, keys, (msg) => setArticleStatus(`${progress}: ${msg}`));
+        const out = await verifyClaim(t.claim, keys, (msg) => setArticleStatus(`${progress}: ${msg}`), { exclude: source });
         addUsage(out.usage);
         fillRow(rows[i], out);
       } catch (err) {

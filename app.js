@@ -2,7 +2,7 @@
 // 의존: sources.js (SOURCE_TYPES, PRIORITY_DOMAINS, classifySource)
 //       evidence.js (MAX_EVIDENCE, WEAK_SOURCE_TYPE, selectEvidence)
 //       judge.js (VERDICTS, HOLD, CLAIM_TYPES, NOTE_KINDS, NOTE_STANCES, normalizeResult)
-// 기사 분석 화면은 article-ui.js가 이 파일의 verifyClaim·callGemini·buildResultView를 쓴다.
+// 핵심 주장 화면(article-ui.js)과 출고 전 점검 화면(precheck-ui.js)이 이 파일의 호출·표시 함수를 같이 쓴다.
 
 // ── 설정 ────────────────────────────────────────────
 const GEMINI_MODEL = "gemini-2.5-flash"; // 모델을 바꿀 때는 이 줄만 수정
@@ -83,20 +83,24 @@ function mergeUnique(lists) {
 }
 
 // 반환: { selected, all, searches } (selected·all은 evidence.js의 selectEvidence 참고, searches는 실제 검색 횟수)
-async function fetchEvidence(claim, key) {
+// opts: depth("advanced"|"basic"), fallbackBelow(1차 근거가 이 수보다 적으면 2차 검색),
+//       maxEvidence·maxPerType·exclude(selectEvidence로 전달)
+async function fetchEvidence(claim, key, opts = {}) {
+  const depth = { search_depth: opts.depth || "advanced" };
+  const fallbackBelow = opts.fallbackBelow || MAX_EVIDENCE;
   let priority = [];
   let searches = 1;
   try {
-    priority = await tavilySearch(claim, key, { include_domains: PRIORITY_DOMAINS });
+    priority = await tavilySearch(claim, key, { ...depth, include_domains: PRIORITY_DOMAINS });
   } catch (err) {
     // 키·한도·연결 오류는 그대로 알린다. 그 밖의 거부(도메인 목록 등)는 2차 검색으로 넘어간다.
     if (!err.status || isFatal(err)) throw err;
   }
-  let result = selectEvidence(priority);
-  if (result.selected.length < MAX_EVIDENCE) {
+  let result = selectEvidence(priority, opts);
+  if (result.selected.length < fallbackBelow) {
     searches++;
-    const general = await tavilySearch(claim, key, {});
-    result = selectEvidence(mergeUnique([priority, general]));
+    const general = await tavilySearch(claim, key, depth);
+    result = selectEvidence(mergeUnique([priority, general]), opts);
   }
   return { ...result, searches };
 }
@@ -194,9 +198,10 @@ async function callGemini(prompt, schema, key) {
 
 // ── 검증 절차 (문장 분석·기사 분석 공용) ─────────────────────
 // 반환: { result, all, usage: { tavily, gemini } }
-async function verifyClaim(claim, keys, onStep = () => {}) {
+// opts는 fetchEvidence로 전달 (예: exclude로 원 기사 제외)
+async function verifyClaim(claim, keys, onStep = () => {}, opts = {}) {
   onStep("근거를 검색하는 중...");
-  const { selected, all, searches } = await fetchEvidence(claim, keys.tavily);
+  const { selected, all, searches } = await fetchEvidence(claim, keys.tavily, opts);
   if (selected.length === 0) {
     const result = { verdict: HOLD, reasons: ["관련 근거를 찾지 못해 판단을 유보합니다."], used: [], notes: null, claimType: null };
     return { result, all, usage: { tavily: searches, gemini: 0 } };
@@ -330,12 +335,18 @@ async function analyze() {
 }
 
 // ── 탭 전환 ────────────────────────────────────────
+// 탭 이름 → [탭 버튼 id, 화면 id]
+const TABS = {
+  sentence: ["tabSentence", "sentencePane"],
+  article: ["tabArticle", "articlePane"],
+  precheck: ["tabPrecheck", "precheckPane"],
+};
+
 function switchTab(name) {
-  const isArticle = name === "article";
-  $("sentencePane").hidden = isArticle;
-  $("articlePane").hidden = !isArticle;
-  $("tabSentence").setAttribute("aria-selected", String(!isArticle));
-  $("tabArticle").setAttribute("aria-selected", String(isArticle));
+  Object.entries(TABS).forEach(([key, [tab, pane]]) => {
+    $(pane).hidden = key !== name;
+    $(tab).setAttribute("aria-selected", String(key === name));
+  });
 }
 
 // ── 초기화 ─────────────────────────────────────────
@@ -343,5 +354,4 @@ $("tavilyKey").value = loadKey("tavily");
 $("geminiKey").value = loadKey("gemini");
 $("analyze").addEventListener("click", analyze);
 $("clearKeys").addEventListener("click", clearKeys);
-$("tabSentence").addEventListener("click", () => switchTab("sentence"));
-$("tabArticle").addEventListener("click", () => switchTab("article"));
+Object.entries(TABS).forEach(([key, [tab]]) => $(tab).addEventListener("click", () => switchTab(key)));

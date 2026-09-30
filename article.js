@@ -54,6 +54,12 @@ function splitSentences(text) {
   return out;
 }
 
+// 가져온 본문의 첫 줄을 제목으로 본다(마크다운 # 표시 제거). 순환 검증 방지용.
+function guessTitle(text) {
+  const line = String(text || "").split(/\r?\n/).map((l) => l.replace(/^#+\s*/, "").trim()).find(Boolean) || "";
+  return line.slice(0, 200);
+}
+
 function isUsableExtract(text) {
   return typeof text === "string" && text.trim().length >= MIN_EXTRACTED_CHARS;
 }
@@ -161,6 +167,6 @@ function estimateUsage(count) {
 
 if (typeof module !== "undefined") {
   module.exports = {
-    splitSentences, hasNumericDetail, normalizeExtraction, estimateUsage, buildExtractionPrompt, isUsableExtract,
+    splitSentences, hasNumericDetail, normalizeExtraction, estimateUsage, buildExtractionPrompt, isUsableExtract, guessTitle,
   };
 }

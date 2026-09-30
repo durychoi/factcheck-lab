@@ -70,3 +70,24 @@ h2.gap { margin-top:20px; }
 .detail-row > td { background:#fafafb; padding:12px; }
 .verdict.small { font-size:.8rem; padding:2px 10px; white-space:nowrap; }
 .row-state { color:var(--muted); white-space:nowrap; }
+
+/* 출고 전 점검 */
+.gap-label { margin-top:12px; }
+.quick { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+.quick button, .filters button { margin:0; padding:5px 12px; font-size:.85rem; }
+.types { display:flex; flex-wrap:wrap; gap:4px 16px; margin-bottom:8px; }
+.type-option { display:inline-flex; align-items:center; gap:4px; margin:0; cursor:pointer; }
+.type-option input { width:auto; }
+.filters { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.filters button { background:#fff; color:var(--fg); border:1px solid var(--line); }
+.filters button.active { background:#1f4fd8; color:#fff; border-color:#1f4fd8; }
+.result-table { width:100%; border-collapse:collapse; font-size:.9rem; }
+.result-table th, .result-table td { border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; vertical-align:top; }
+.result-table th { color:var(--muted); font-weight:normal; white-space:nowrap; }
+.result-table td.center { text-align:center; }
+.result-table td.nowrap { white-space:nowrap; }
+.expr { font-weight:bold; word-break:break-all; min-width:6em; }
+.primary-sources { background:#fff8e6; border:1px solid #f0d9a8; border-radius:6px; padding:8px 10px; margin:8px 0; font-size:.9rem; }
+.primary-sources a { color:#1f4fd8; }
+.v-일치 { background:#1e8449; } .v-근사 { background:#52a865; }
+.v-불일치 { background:#c0392b; } .v-확인-불가 { background:#6b6b70; }

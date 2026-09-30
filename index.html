@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>팩트체크 분석</title>
-  <link rel="stylesheet" href="style.css?v=20260930d">
+  <link rel="stylesheet" href="style.css?v=20260930e">
 </head>
 <body>
   <main>
@@ -24,7 +24,8 @@
 
     <nav class="tabs" role="tablist" aria-label="분석 방식">
       <button id="tabSentence" type="button" role="tab" aria-selected="true" aria-controls="sentencePane">문장 분석</button>
-      <button id="tabArticle" type="button" role="tab" aria-selected="false" aria-controls="articlePane">기사 분석</button>
+      <button id="tabArticle" type="button" role="tab" aria-selected="false" aria-controls="articlePane">핵심 주장</button>
+      <button id="tabPrecheck" type="button" role="tab" aria-selected="false" aria-controls="precheckPane">출고 전 점검</button>
     </nav>
 
     <!-- 문장 분석 -->
@@ -38,7 +39,7 @@
       <section id="result" hidden></section>
     </div>
 
-    <!-- 기사 분석 -->
+    <!-- 핵심 주장: 기사에서 주장 최대 5개를 골라 검증 -->
     <div id="articlePane" role="tabpanel" hidden>
       <section>
         <h2>기사 링크 <small>(선택)</small></h2>
@@ -79,12 +80,65 @@
         <p class="hint">AI 판정은 참고용입니다. "원자료 확인 필요"는 숫자·날짜·금액이 들어간 주장으로, 판정과 관계없이 원자료를 직접 확인하세요.</p>
       </section>
     </div>
+
+    <!-- 출고 전 점검: 기사 전체의 사실 항목을 전수 점검 -->
+    <div id="precheckPane" role="tabpanel" hidden>
+      <section>
+        <h2>기사 링크 <small>(선택)</small></h2>
+        <div class="url-row">
+          <input id="pcUrl" type="url" placeholder="https://..." aria-label="기사 링크">
+          <button id="pcFetch" type="button" class="secondary">본문 가져오기</button>
+        </div>
+        <label class="gap-label">기사 제목 <small>(이 제목·링크와 같은 기사와 사본은 근거에서 뺍니다)</small>
+          <input id="pcTitle" type="text" placeholder="본문을 가져오면 첫 줄이 자동으로 들어갑니다">
+        </label>
+
+        <h2 class="gap">기사 본문</h2>
+        <p class="hint warn">기사 전문이 Google(Gemini)로 전송됩니다. 보도 전·엠바고 기사는 주의하세요. 최대 15,000자.</p>
+        <textarea id="pcText" rows="12" placeholder="기사 본문을 붙여 넣으세요"></textarea>
+        <div id="pcCount" class="hint"></div>
+        <button id="pcExtract" type="button">사실 항목 추출</button>
+      </section>
+
+      <section id="pcStatus" class="status" aria-live="polite"></section>
+
+      <section id="pcSetup" hidden>
+        <h2>확인할 사실 항목 <small>(점검할 유형을 고르세요)</small></h2>
+        <div id="pcQuick" class="quick">
+          <button type="button" class="secondary" data-types="all">전체</button>
+          <button type="button" class="secondary" data-types="numbers">수치·날짜만</button>
+          <button type="button" class="secondary" data-types="people">인물·직함만</button>
+        </div>
+        <div id="pcTypes" class="types"></div>
+        <p id="pcEstimate" class="usage"></p>
+        <button id="pcRun" type="button">점검 시작</button>
+        <button id="pcStop" type="button" class="secondary" disabled>중지</button>
+      </section>
+
+      <section id="pcTableBox" hidden>
+        <h2>점검 결과 <small>(행을 누르면 이유·근거가 펼쳐집니다)</small></h2>
+        <div id="pcFilters" class="filters"></div>
+        <div class="table-wrap">
+          <table id="pcTable" class="result-table">
+            <thead>
+              <tr><th>문장</th><th>원문 표현</th><th>유형</th><th>판정</th><th>근거상 값</th><th>근거 번호</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="pcEmpty" class="hint" hidden>이 필터에 해당하는 항목이 없습니다.</p>
+        <button id="pcCsv" type="button" class="secondary">CSV 내려받기</button>
+        <p class="hint">AI 판정은 참고용입니다. "원자료 확인 필요"는 확인 불가이거나 근거가 [백과]·[기타]뿐인 항목입니다. 1차 확인처에서 직접 확인하세요.</p>
+      </section>
+    </div>
   </main>
-  <script src="sources.js?v=20260930d"></script>
-  <script src="evidence.js?v=20260930d"></script>
-  <script src="judge.js?v=20260930d"></script>
-  <script src="article.js?v=20260930d"></script>
-  <script src="app.js?v=20260930d"></script>
-  <script src="article-ui.js?v=20260930d"></script>
+  <script src="sources.js?v=20260930e"></script>
+  <script src="evidence.js?v=20260930e"></script>
+  <script src="judge.js?v=20260930e"></script>
+  <script src="article.js?v=20260930e"></script>
+  <script src="app.js?v=20260930e"></script>
+  <script src="article-ui.js?v=20260930e"></script>
+  <script src="items.js?v=20260930e"></script>
+  <script src="precheck-ui.js?v=20260930e"></script>
 </body>
 </html>
