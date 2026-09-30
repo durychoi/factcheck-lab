@@ -12,20 +12,56 @@ button { padding:9px 20px; border:0; border-radius:6px; background:#1f4fd8; colo
 button.secondary { background:#fff; color:var(--fg); border:1px solid var(--line); }
 button:disabled { opacity:.5; cursor:wait; }
 .hint { color:var(--muted); font-size:.85rem; margin:8px 0 0; }
-#status { display:none; } #status.show { display:block; }
-#status.error { border-color:#c0392b; color:#c0392b; }
+/* 상태 표시줄 */
+.status { display:none; } .status.show { display:block; }
+.status.error { border-color:#c0392b; color:#c0392b; }
 .verdict { display:inline-block; padding:6px 16px; border-radius:20px; font-weight:bold; color:#fff; font-size:1.1rem; }
 .v-사실 { background:#1e8449; } .v-대체로-사실 { background:#52a865; }
 .v-절반의-사실 { background:#d68910; } .v-대체로-거짓 { background:#d35400; }
 .v-거짓 { background:#c0392b; } .v-판단-유보 { background:#6b6b70; }
-#reasons { padding-left:20px; } #sources li { margin-bottom:8px; word-break:break-all; }
-#sources a { color:#1f4fd8; }
+ul.reasons { padding-left:20px; }
+ul.numbered li { margin-bottom:8px; word-break:break-all; }
+ul.numbered a { color:#1f4fd8; }
 .badge { display:inline-block; padding:0 8px; border-radius:4px; font-size:.8rem; font-weight:bold; color:#fff; background:#6b6b70; }
 .t-공공기관 { background:#1f4fd8; } .t-학술 { background:#7d3c98; }
 .t-언론 { background:#1e8449; } .t-백과 { background:#b7791f; }
 .t-기타 { background:#9a9aa0; }
 details { margin-top:12px; } summary { cursor:pointer; color:var(--muted); font-size:.9rem; }
-#allEvidenceList li { margin-bottom:6px; word-break:break-all; }
 ul.numbered { list-style:none; padding-left:0; }
 .num { font-weight:bold; margin-right:4px; font-variant-numeric:tabular-nums; }
-#claimType { margin-top:8px; }
+.claim-type { margin-top:8px; }
+
+/* 탭 */
+.tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:2px solid var(--line); }
+.tabs button { margin:0; border-radius:6px 6px 0 0; background:transparent; color:var(--muted); font-weight:bold; }
+.tabs button[aria-selected="true"] { background:#1f4fd8; color:#fff; }
+
+/* 기사 분석 */
+.warn { color:#b9770e; }
+#articleCount.over { color:#c0392b; font-weight:bold; }
+.candidates { list-style:none; padding:0; margin:0; }
+.candidate { border-top:1px solid var(--line); padding:10px 0; }
+.candidate:first-child { border-top:0; }
+.candidate-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:0 0 6px; cursor:pointer; }
+.candidate-head input { width:auto; margin:0 4px 0 0; }
+.sentence-no { font-weight:bold; }
+.original { word-break:break-all; }
+.kind-badge { display:inline-block; padding:0 6px; border-radius:4px; font-size:.8rem; font-weight:bold; color:#7d3c98; border:1px solid #7d3c98; }
+.raw-badge { display:inline-block; padding:0 6px; border-radius:4px; font-size:.8rem; font-weight:bold; color:#fff; background:#b9770e; }
+.raw-badge[hidden] { display:none; }
+.usage { background:var(--bg); border-radius:6px; padding:8px 10px; font-size:.9rem; }
+
+/* 결과 표 */
+.table-wrap { overflow-x:auto; }
+#resultTable { width:100%; border-collapse:collapse; font-size:.9rem; }
+#resultTable th, #resultTable td { border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; vertical-align:top; }
+#resultTable th { color:var(--muted); font-weight:normal; white-space:nowrap; }
+#resultTable td.center { text-align:center; }
+#resultTable td:nth-child(2) { min-width:12em; }
+.raw-badge, .kind-badge { white-space:nowrap; }
+.result-row { cursor:pointer; }
+.result-row:hover, .result-row:focus { background:#eef2fd; outline:none; }
+.result-row.open { background:#eef2fd; }
+.detail-row > td { background:#fafafb; padding:12px; }
+.verdict.small { font-size:.8rem; padding:2px 10px; white-space:nowrap; }
+.row-state { color:var(--muted); white-space:nowrap; }

@@ -2,6 +2,7 @@
 // 의존: sources.js (SOURCE_TYPES, PRIORITY_DOMAINS, classifySource)
 //       evidence.js (MAX_EVIDENCE, WEAK_SOURCE_TYPE, selectEvidence)
 //       judge.js (VERDICTS, HOLD, CLAIM_TYPES, NOTE_KINDS, NOTE_STANCES, normalizeResult)
+// 기사 분석 화면은 article-ui.js가 이 파일의 verifyClaim·callGemini·buildResultView를 쓴다.
 
 // ── 설정 ────────────────────────────────────────────
 const GEMINI_MODEL = "gemini-2.5-flash"; // 모델을 바꿀 때는 이 줄만 수정
@@ -26,12 +27,14 @@ function clearKeys() {
 }
 
 // ── 화면 표시 ──────────────────────────────────────
-function showStatus(msg, isError = false) {
-  const el = $("status");
-  el.textContent = msg;
-  el.className = "show" + (isError ? " error" : "");
+function setStatus(id, msg, isError = false) {
+  const box = $(id);
+  box.textContent = msg;
+  box.className = "status show" + (isError ? " error" : "");
 }
-function hideStatus() { $("status").className = ""; }
+function clearStatus(id) { $(id).className = "status"; }
+function showStatus(msg, isError = false) { setStatus("status", msg, isError); }
+function hideStatus() { clearStatus("status"); }
 
 // ── 1단계: Tavily 근거 수집 (우선 출처 1차 → 부족하면 전체 2차) ────
 async function tavilySearch(claim, key, extra) {
@@ -57,9 +60,10 @@ function mergeUnique(lists) {
   return lists.flat().filter((e) => (seen.has(e.url) ? false : seen.add(e.url)));
 }
 
-// 반환: { selected, all } (evidence.js의 selectEvidence 참고)
+// 반환: { selected, all, searches } (selected·all은 evidence.js의 selectEvidence 참고, searches는 실제 검색 횟수)
 async function fetchEvidence(claim, key) {
   let priority = [];
+  let searches = 1;
   try {
     priority = await tavilySearch(claim, key, { include_domains: PRIORITY_DOMAINS });
   } catch (err) {
@@ -68,10 +72,11 @@ async function fetchEvidence(claim, key) {
   }
   let result = selectEvidence(priority);
   if (result.selected.length < MAX_EVIDENCE) {
+    searches++;
     const general = await tavilySearch(claim, key, {});
     result = selectEvidence(mergeUnique([priority, general]));
   }
-  return result;
+  return { ...result, searches };
 }
 
 // ── 2단계: Gemini 판정 (근거 목록만 전달) ─────────────────
@@ -117,42 +122,45 @@ function buildPrompt(claim, evidence) {
   ].join("\n");
 }
 
+// 근거별 성격 분석을 판정보다 먼저 생성하게 한다
+const JUDGE_SCHEMA = {
+  type: "OBJECT",
+  propertyOrdering: ["claim_type", "evidence_notes", "verdict", "reasons", "used_evidence"],
+  properties: {
+    claim_type: { type: "STRING", enum: CLAIM_TYPES },
+    evidence_notes: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        propertyOrdering: ["id", "kind", "stance"],
+        properties: {
+          id: { type: "INTEGER" },
+          kind: { type: "STRING", enum: NOTE_KINDS },
+          stance: { type: "STRING", enum: NOTE_STANCES },
+        },
+        required: ["id", "kind", "stance"],
+      },
+    },
+    verdict: { type: "STRING", enum: VERDICTS },
+    reasons: { type: "ARRAY", items: { type: "STRING" } },
+    used_evidence: { type: "ARRAY", items: { type: "INTEGER" } },
+  },
+  required: ["claim_type", "evidence_notes", "verdict", "reasons", "used_evidence"],
+};
+
 async function askGemini(claim, evidence, key) {
+  return callGemini(buildPrompt(claim, evidence), JUDGE_SCHEMA, key);
+}
+
+// Gemini 공통 호출 (temperature 0, JSON 응답)
+async function callGemini(prompt, schema, key) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: buildPrompt(claim, evidence) }] }],
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          // 근거별 성격 분석을 판정보다 먼저 생성하게 한다
-          propertyOrdering: ["claim_type", "evidence_notes", "verdict", "reasons", "used_evidence"],
-          properties: {
-            claim_type: { type: "STRING", enum: CLAIM_TYPES },
-            evidence_notes: {
-              type: "ARRAY",
-              items: {
-                type: "OBJECT",
-                propertyOrdering: ["id", "kind", "stance"],
-                properties: {
-                  id: { type: "INTEGER" },
-                  kind: { type: "STRING", enum: NOTE_KINDS },
-                  stance: { type: "STRING", enum: NOTE_STANCES },
-                },
-                required: ["id", "kind", "stance"],
-              },
-            },
-            verdict: { type: "STRING", enum: VERDICTS },
-            reasons: { type: "ARRAY", items: { type: "STRING" } },
-            used_evidence: { type: "ARRAY", items: { type: "INTEGER" } },
-          },
-          required: ["claim_type", "evidence_notes", "verdict", "reasons", "used_evidence"],
-        },
-      },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: schema },
     }),
   });
   if (!res.ok) throw httpError("Gemini", res.status);
@@ -162,60 +170,58 @@ async function askGemini(claim, evidence, key) {
   try { return JSON.parse(text); } catch { throw new Error("Gemini 응답 형식이 올바르지 않습니다. 다시 시도하세요."); }
 }
 
+// ── 검증 절차 (문장 분석·기사 분석 공용) ─────────────────────
+// 반환: { result, all, usage: { tavily, gemini } }
+async function verifyClaim(claim, keys, onStep = () => {}) {
+  onStep("근거를 검색하는 중...");
+  const { selected, all, searches } = await fetchEvidence(claim, keys.tavily);
+  if (selected.length === 0) {
+    const result = { verdict: HOLD, reasons: ["관련 근거를 찾지 못해 판단을 유보합니다."], used: [], notes: null, claimType: null };
+    return { result, all, usage: { tavily: searches, gemini: 0 } };
+  }
+  onStep(`근거 ${selected.length}건으로 판정하는 중...`);
+  const raw = await askGemini(claim, selected, keys.gemini);
+  return { result: normalizeResult(raw, selected), all, usage: { tavily: searches, gemini: 1 } };
+}
+
 // ── 결과 렌더링 (textContent만 사용: 외부 문자열은 HTML로 해석하지 않음) ──
 // 화면의 번호는 목록 순서가 아니라 Gemini에 전달한 근거 번호(id)다. 이유 문장의 [번호]와 같다.
-function makeBadge(type) {
-  const badge = document.createElement("span");
-  badge.className = "badge t-" + type;
-  badge.textContent = `[${type}]`;
-  return badge;
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
-function makeNum(id) {
-  const span = document.createElement("span");
-  span.className = "num";
-  span.textContent = id ? `[${id}]` : "[–]";
-  return span;
-}
+function makeBadge(type) { return el("span", "badge t-" + type, `[${type}]`); }
+function makeNum(id) { return el("span", "num", id ? `[${id}]` : "[–]"); }
+function verdictClass(verdict) { return "v-" + verdict.replace(/ /g, "-"); }
 
 function makeEvidenceItem(e, detail) {
-  const li = document.createElement("li");
-  const a = document.createElement("a");
+  const li = el("li");
+  const a = el("a", "", e.title);
   a.href = e.url;
   a.target = "_blank";
   a.rel = "noopener noreferrer";
-  a.textContent = e.title;
-  const small = document.createElement("div");
-  small.className = "hint";
-  small.textContent = detail;
-  li.append(makeNum(e.id), " ", makeBadge(e.type), " ", a, small);
+  li.append(makeNum(e.id), " ", makeBadge(e.type), " ", a, el("div", "hint", detail));
   return li;
 }
 
-function renderResult({ verdict, reasons, used, claimType }) {
-  const v = $("verdict");
-  v.textContent = verdict;
-  v.className = "verdict v-" + verdict.replace(/ /g, "-");
-
-  const ct = $("claimType");
-  ct.textContent = claimType ? `주장 유형: ${claimType}` : "";
-  ct.hidden = !claimType;
-
-  $("reasons").replaceChildren(
-    ...reasons.map((r) => Object.assign(document.createElement("li"), { textContent: r }))
-  );
-  $("sources").replaceChildren(...used.map((e) => makeEvidenceItem(e, e.url)));
-  $("result").hidden = false;
-}
-
 // 검색된 후보 전체와 처리 결과 (원인 진단용). 전달된 근거를 번호순으로, 제외된 후보를 뒤에 둔다.
-function renderAllEvidence(all, used, notes) {
+function buildAllEvidence(all, used, notes) {
   const usedIds = new Set(used.map((e) => e.id));
   const ordered = [
     ...all.filter((e) => e.id).sort((a, b) => a.id - b.id),
     ...all.filter((e) => !e.id),
   ];
-  const items = ordered.map((e) => {
+  const details = el("details");
+  details.hidden = all.length === 0;
+  details.append(
+    el("summary", "", `검색된 근거 전체 보기 (${all.length}건)`),
+    el("p", "hint", "[–]는 중복·상한으로 제외되어 판정에 전달되지 않은 후보입니다.")
+  );
+  const ul = el("ul", "numbered");
+  ul.append(...ordered.map((e) => {
     let state = e.status;
     if (!state) {
       const note = notes?.get(e.id);
@@ -223,10 +229,28 @@ function renderAllEvidence(all, used, notes) {
       state = (usedIds.has(e.id) ? "판정에 사용" : "검토됨(판정에 미사용)") + noteText;
     }
     return makeEvidenceItem(e, state);
-  });
-  $("allEvidenceList").replaceChildren(...items);
-  $("allEvidenceCount").textContent = String(all.length);
-  $("allEvidence").hidden = all.length === 0;
+  }));
+  details.append(ul);
+  return details;
+}
+
+// 상세 결과 한 묶음 (판정·유형·이유·판정에 쓴 근거·전체 근거)
+function buildResultView({ verdict, reasons, used, claimType, notes }, all) {
+  const wrap = el("div", "result-view");
+  wrap.append(el("div", "verdict " + verdictClass(verdict), verdict));
+  if (claimType) wrap.append(el("p", "hint claim-type", `주장 유형: ${claimType}`));
+  const ul = el("ul", "reasons");
+  ul.append(...reasons.map((r) => el("li", "", r)));
+  const sources = el("ul", "numbered sources");
+  sources.append(...used.map((e) => makeEvidenceItem(e, e.url)));
+  wrap.append(
+    ul,
+    el("h3", "", "판정에 쓴 근거"),
+    used.length ? sources : el("p", "hint", "없음"),
+    el("p", "hint", "AI 판정은 참고용입니다. 근거 링크를 직접 확인하세요."),
+    buildAllEvidence(all, used, notes)
+  );
+  return wrap;
 }
 
 // ── 유틸 ───────────────────────────────────────────
@@ -244,43 +268,48 @@ function httpError(who, status) {
   else if (status === 400) msg = `${who} 요청이 거부되었습니다(400). 키와 입력 내용을 확인하세요.`;
   return Object.assign(new Error(msg), { status });
 }
+function errorMessage(err) {
+  // fetch 자체 실패(네트워크, CORS 등)는 TypeError
+  return err instanceof TypeError ? "네트워크 오류로 호출하지 못했습니다. 연결을 확인하세요." : err.message;
+}
 
-// ── 분석 실행 ──────────────────────────────────────
+// 입력칸의 키를 읽어 저장한다. 하나라도 비었으면 null.
+function readKeys() {
+  const keys = { tavily: $("tavilyKey").value.trim(), gemini: $("geminiKey").value.trim() };
+  if (!keys.tavily || !keys.gemini) return null;
+  saveKey("tavily", keys.tavily);
+  saveKey("gemini", keys.gemini);
+  return keys;
+}
+
+// ── 문장 분석 실행 ────────────────────────────────────
 async function analyze() {
   const claim = $("claim").value.trim();
-  const tavilyKey = $("tavilyKey").value.trim();
-  const geminiKey = $("geminiKey").value.trim();
-
-  if (!tavilyKey || !geminiKey) return showStatus("상단에 Tavily 키와 Gemini 키를 모두 입력하세요.", true);
+  const keys = readKeys();
+  if (!keys) return showStatus("상단에 Tavily 키와 Gemini 키를 모두 입력하세요.", true);
   if (!claim) return showStatus("검증할 주장을 입력하세요.", true);
 
-  saveKey("tavily", tavilyKey);
-  saveKey("gemini", geminiKey);
   $("analyze").disabled = true;
   $("result").hidden = true;
-
   try {
-    showStatus("근거를 검색하는 중...");
-    const { selected, all } = await fetchEvidence(claim, tavilyKey);
-
-    if (selected.length === 0) {
-      renderResult({ verdict: HOLD, reasons: ["관련 근거를 찾지 못해 판단을 유보합니다."], used: [] });
-      renderAllEvidence(all, [], null);
-      return hideStatus();
-    }
-
-    showStatus(`근거 ${selected.length}건으로 판정하는 중...`);
-    const raw = await askGemini(claim, selected, geminiKey);
-    const result = normalizeResult(raw, selected);
-    renderResult(result);
-    renderAllEvidence(all, result.used, result.notes);
+    const { result, all } = await verifyClaim(claim, keys, (msg) => showStatus(msg));
+    $("result").replaceChildren(buildResultView(result, all));
+    $("result").hidden = false;
     hideStatus();
   } catch (err) {
-    const network = err instanceof TypeError; // fetch 자체 실패(네트워크, CORS 등)
-    showStatus(network ? "네트워크 오류로 호출하지 못했습니다. 연결을 확인하세요." : err.message, true);
+    showStatus(errorMessage(err), true);
   } finally {
     $("analyze").disabled = false;
   }
+}
+
+// ── 탭 전환 ────────────────────────────────────────
+function switchTab(name) {
+  const isArticle = name === "article";
+  $("sentencePane").hidden = isArticle;
+  $("articlePane").hidden = !isArticle;
+  $("tabSentence").setAttribute("aria-selected", String(!isArticle));
+  $("tabArticle").setAttribute("aria-selected", String(isArticle));
 }
 
 // ── 초기화 ─────────────────────────────────────────
@@ -288,3 +317,5 @@ $("tavilyKey").value = loadKey("tavily");
 $("geminiKey").value = loadKey("gemini");
 $("analyze").addEventListener("click", analyze);
 $("clearKeys").addEventListener("click", clearKeys);
+$("tabSentence").addEventListener("click", () => switchTab("sentence"));
+$("tabArticle").addEventListener("click", () => switchTab("article"));

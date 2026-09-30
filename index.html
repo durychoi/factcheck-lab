@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>팩트체크 분석</title>
-  <link rel="stylesheet" href="style.css?v=20260930">
+  <link rel="stylesheet" href="style.css?v=20260930b">
 </head>
 <body>
   <main>
@@ -22,30 +22,62 @@
       <p class="hint">공용 PC에서는 사용 후 반드시 "키 지우기"를 누르세요.</p>
     </section>
 
-    <section>
-      <h2>검증할 주장</h2>
-      <textarea id="claim" rows="3" placeholder="기사 속 주장 한 문장을 입력하세요"></textarea>
-      <button id="analyze" type="button">분석</button>
-    </section>
+    <nav class="tabs" role="tablist" aria-label="분석 방식">
+      <button id="tabSentence" type="button" role="tab" aria-selected="true" aria-controls="sentencePane">문장 분석</button>
+      <button id="tabArticle" type="button" role="tab" aria-selected="false" aria-controls="articlePane">기사 분석</button>
+    </nav>
 
-    <section id="status" aria-live="polite"></section>
-    <section id="result" hidden>
-      <div id="verdict" class="verdict"></div>
-      <p id="claimType" class="hint" hidden></p>
-      <ul id="reasons"></ul>
-      <h3>판정에 쓴 근거</h3>
-      <ul id="sources" class="numbered"></ul>
-      <p class="hint">AI 판정은 참고용입니다. 근거 링크를 직접 확인하세요.</p>
-      <details id="allEvidence" hidden>
-        <summary>검색된 근거 전체 보기 (<span id="allEvidenceCount">0</span>건)</summary>
-        <p class="hint">[–]는 중복·상한으로 제외되어 판정에 전달되지 않은 후보입니다.</p>
-        <ul id="allEvidenceList" class="numbered"></ul>
-      </details>
-    </section>
+    <!-- 문장 분석 -->
+    <div id="sentencePane" role="tabpanel">
+      <section>
+        <h2>검증할 주장</h2>
+        <textarea id="claim" rows="3" placeholder="기사 속 주장 한 문장을 입력하세요"></textarea>
+        <button id="analyze" type="button">분석</button>
+      </section>
+      <section id="status" class="status" aria-live="polite"></section>
+      <section id="result" hidden></section>
+    </div>
+
+    <!-- 기사 분석 -->
+    <div id="articlePane" role="tabpanel" hidden>
+      <section>
+        <h2>기사 원문</h2>
+        <p class="hint warn">기사 전문이 Google(Gemini)로 전송됩니다. 보도 전·엠바고 기사는 주의하세요.</p>
+        <textarea id="articleText" rows="10" placeholder="기사 본문을 붙여 넣으세요"></textarea>
+        <div id="articleCount" class="hint"></div>
+        <button id="extract" type="button">주장 추출</button>
+      </section>
+
+      <section id="articleStatus" class="status" aria-live="polite"></section>
+
+      <section id="candidatesBox" hidden>
+        <h2>추출된 주장 <small>(최대 5개 선택 · 문구는 검증 전에 고칠 수 있음)</small></h2>
+        <ul id="candidates" class="candidates"></ul>
+        <p id="usage" class="usage"></p>
+        <button id="verifyStart" type="button">검증 시작</button>
+        <button id="verifyStop" type="button" class="secondary" disabled>중지</button>
+      </section>
+
+      <section id="tableBox" hidden>
+        <h2>검증 결과 <small>(행을 누르면 상세가 펼쳐집니다)</small></h2>
+        <div class="table-wrap">
+          <table id="resultTable">
+            <thead>
+              <tr><th>문장</th><th>주장</th><th>판정</th><th>주장 유형</th><th>근거 번호</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="usedSoFar" class="hint"></p>
+        <p class="hint">AI 판정은 참고용입니다. "원자료 확인 필요"는 숫자·날짜·금액이 들어간 주장으로, 판정과 관계없이 원자료를 직접 확인하세요.</p>
+      </section>
+    </div>
   </main>
-  <script src="sources.js?v=20260930"></script>
-  <script src="evidence.js?v=20260930"></script>
-  <script src="judge.js?v=20260930"></script>
-  <script src="app.js?v=20260930"></script>
+  <script src="sources.js?v=20260930b"></script>
+  <script src="evidence.js?v=20260930b"></script>
+  <script src="judge.js?v=20260930b"></script>
+  <script src="article.js?v=20260930b"></script>
+  <script src="app.js?v=20260930b"></script>
+  <script src="article-ui.js?v=20260930b"></script>
 </body>
 </html>
